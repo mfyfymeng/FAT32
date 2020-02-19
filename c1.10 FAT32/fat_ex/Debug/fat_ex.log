@@ -1,0 +1,3 @@
+﻿  fatfs_test.c
+D:\code\FAT32\c1.10 FAT32\fat_ex\fatfs_test.c(61,13): warning C4101: “err”: 未引用的局部变量
+  fat_ex.vcxproj -> D:\code\FAT32\c1.10 FAT32\fat_ex\Debug\fat_ex.exe
