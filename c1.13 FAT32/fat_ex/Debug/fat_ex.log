@@ -1,0 +1,7 @@
+﻿  driver.c
+  fatfs_test.c
+D:\code\FAT32\Source code\c1.13 FAT32\fat_ex\fatfs_test.c(67,20): warning C4018: “<”: 有符号/无符号不匹配
+  xdisk.c
+  xfat.c
+  正在生成代码...
+  fat_ex.vcxproj -> D:\code\FAT32\Source code\c1.13 FAT32\fat_ex\Debug\fat_ex.exe
