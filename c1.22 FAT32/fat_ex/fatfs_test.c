@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "xdisk.h"
 #include "xfat.h"
@@ -66,7 +67,7 @@ int disk_part_test(void) {
 		return err;
 	}
 
-	for (int i = 0; i < count; i++) {
+	for (u32_t i = 0; i < count; i++) {
 		xdisk_part_t part;
 		
 		int err = xdisk_get_part(&disk, &part, i);
@@ -80,6 +81,81 @@ int disk_part_test(void) {
 	}
 
 	printf("partition count: %d\n", count);
+	return 0;
+}
+
+void show_dir_info(diritem_t* dir_item) {
+	char file_name[12];
+	u8_t attr = dir_item->DIR_Attr;
+
+	memset(file_name, 0, sizeof(file_name));
+	memcpy(file_name, dir_item->DIR_Name, 11);
+	if (file_name[0] == 0x05) {
+		file_name[0] = 0xE5;
+	}
+	printf("\n name: %s, ", file_name);
+
+	printf("\n\t");
+	if (attr & DIRITEM_ATTR_READ_ONLY)
+		printf("readonly, ");
+
+	if (attr & DIRITEM_ATTR_HIDDEN)
+		printf("hidden, ");
+
+	if (attr & DIRITEM_ATTR_SYSTEM)
+		printf("system, ");
+
+	if (attr & DIRITEM_ATTR_DIRECTORY)
+		printf("directory, ");
+
+	if (attr & DIRITEM_ATTR_ARCHIVE)
+		printf("archive, ");
+
+	printf("\n\tcreate: %d-%d-%d, ", 
+		dir_item->DIR_CrtDate.year_from_1980 + 1980, dir_item->DIR_CrtDate.month, dir_item->DIR_CrtDate.day);
+	printf("\n\tcreate time: %d-%d-%d, ",
+		dir_item->DIR_CrtTime.hour, dir_item->DIR_CrtTime.minute, dir_item->DIR_CrtTime.second_2 * 2 + dir_item->DIR_CrtTimeTeenth / 100);
+	
+	printf("\n\tlast write: %d-%d-%d, ",
+		dir_item->DIR_WrtDate.year_from_1980 + 1980, dir_item->DIR_WrtDate.month, dir_item->DIR_WrtDate.day);
+	printf("\n\tlast write time: %d-%d-%d, ",
+		dir_item->DIR_WrtTime.hour, dir_item->DIR_WrtTime.minute, dir_item->DIR_WrtTime.second_2 * 2);
+
+	printf("\n\tlast acc: %d-%d-%d, ",
+		dir_item->DIR_LastAccDate.year_from_1980 + 1980, dir_item->DIR_LastAccDate.month, dir_item->DIR_LastAccDate.day);
+
+	printf("\n\t size %d KB, ", dir_item->DIR_FileSize / 1024);
+	printf("\n\t cluster %d, ", (dir_item->DIR_FstClusHI << 16) | dir_item->DIR_FstClusL0);
+
+	printf("\n");
+}
+
+int fat_dir_test(void) {
+	u8_t* cluster_buffer;
+	u32_t curr_cluster;
+	int index = 0;
+
+	cluster_buffer = (u8_t*)malloc(xfat.cluster_byte_size);
+	curr_cluster = xfat.root_cluster;
+	int err = read_cluster(&xfat, cluster_buffer, curr_cluster, 1);
+	if (err) {
+		printf("read cluster %d failed!\n", curr_cluster);
+		return -1;
+	}
+
+	diritem_t* dir_item = (diritem_t*)cluster_buffer;
+	for (u32_t i = 0; i < xfat.cluster_byte_size / sizeof(diritem_t); i++) {
+		u8_t* name = (u8_t*)(dir_item[i].DIR_Name);
+		if (name[0] == DIRITEM_NAME_FREE)
+			continue;
+		else if (name[0] == DIRITEM_NAME_END)
+			break;
+		
+		++index;
+		printf("no: %d, ", index);
+		show_dir_info(&dir_item[i]);	
+	}
+
 	return 0;
 }
 
@@ -110,6 +186,9 @@ int main(void) {
 
 	err = xfat_open(&xfat, &disk_part);
 	if (err < 0) return err;
+
+	err = fat_dir_test();
+	if (err) return err;
 
 	err = xdisk_close(&disk);
 	if (err) {
