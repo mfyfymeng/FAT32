@@ -7,7 +7,7 @@
 extern xdisk_driver_t vdisk_driver;
 
 const char* disk_path_test = "disk_test.img";
-const char* disk_path = "disk.vhd";
+const char* disk_path = "disk.img";
 static u32_t write_buffer[160 * 1024];
 static u32_t read_buffer[160 * 1024];
 
@@ -149,6 +149,8 @@ int fat_dir_test(void) {
 		for (u32_t i = 0; i < xfat.cluster_byte_size / sizeof(diritem_t); i++) {
 			u8_t* name = (u8_t*)(dir_item[i].DIR_Name);
 			if (name[0] == DIRITEM_NAME_FREE)
+				continue;
+			else if (name[0] == DIRITEM_ATTR_LONG_NAME)
 				continue;
 			else if (name[0] == DIRITEM_NAME_END)
 				break;
