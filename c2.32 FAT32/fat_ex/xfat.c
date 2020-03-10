@@ -1,4 +1,6 @@
 #include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
 #include "xfat.h"
 
 extern u8_t temp_buffer[512];
@@ -71,8 +73,60 @@ xfat_err_t read_cluster(xfat_t* xfat, u8_t* buffer, u32_t cluster, u32_t count) 
 	return FS_ERR_OK;
 }
 
+static xfat_err_t to_sfn(char* dest_name, const char* my_name) {
+	int name_len;
+	const char* ext_dot;
+	const char* p;
+	char* dest = dest_name;
+	int ext_existed;
+
+	memset(dest_name, ' ', SFN_LEN);
+
+	while (is_path_sep(*my_name)) {
+		my_name++;
+	}
+
+	ext_dot = my_name;
+	p = my_name;
+	name_len = 0;
+	ext_existed = 0;
+	while ((*p != '\0') && (!is_path_sep(*p))) {
+		if (*p == '.')
+			ext_dot = p;
+	
+		p++;
+		name_len++;
+	}
+
+	ext_existed = (ext_dot > my_name) && (ext_dot < (my_name + name_len - 1));
+	
+	p = my_name;
+	for (int i = 0; ((i < SFN_LEN) && (*p != '\0') && !is_path_sep(*p)); i++) {
+		if (ext_existed) {
+			if (p == ext_dot) {
+				dest = dest_name + 8;
+				p++;
+				i--;
+				continue;
+			}
+			else if (p < ext_dot)
+				*dest++ = toupper(*p++);
+			else
+				*dest++ = toupper(*p++);
+		}
+		else
+			*dest++ = toupper(*p++);
+	}
+
+	return FS_ERR_OK;
+}
+
 static u8_t is_filename_match(const char* name_in_dir, const char* to_find_name) {
-	return memcmp(to_find_name, name_in_dir, SFN_LEN) == 0;
+	char temp_name[SFN_LEN];
+
+	to_sfn(temp_name, to_find_name);
+	
+	return memcmp(temp_name, name_in_dir, SFN_LEN) == 0;
 }
 
 static const char* skip_first_path_sep(const char* path) {
@@ -154,8 +208,9 @@ static xfat_err_t locate_file_dir_item(xfat_t* xfat, u32_t* dir_cluster, u32_t* 
 					*dir_cluster = curr_cluster;
 					*moved_bytes = r_moved_bytes + sizeof(diritem_t);
 					*cluster_offset = total_offset;
-					if (r_diritem) *r_diritem = dir_item;
-						
+					if (r_diritem) 
+						*r_diritem = dir_item;
+					
 					return FS_ERR_OK;
 				}
 
@@ -180,9 +235,10 @@ static xfat_err_t open_sub_file(xfat_t* xfat, u32_t dir_cluster, xfile_t* file, 
 	u32_t file_start_cluster = 0;
 
 	path = skip_first_path_sep(path);
+
 	if ((path != '\0') && (*path != '\0')) {
 		const char* curr_path = path;
-		
+
 		while (curr_path != (const char*)0) {
 			xfat_err_t err;
 			u32_t moved_bytes = 0;
@@ -222,7 +278,9 @@ static xfat_err_t open_sub_file(xfat_t* xfat, u32_t dir_cluster, xfile_t* file, 
 }
 
 xfat_err_t xfile_open(xfat_t* xfat, xfile_t* file, const char* path) {
-	return open_sub_file(xfat, xfat->root_cluster, file, path);
+	xfat_err_t err = FS_ERR_OK;
+	err = open_sub_file(xfat, xfat->root_cluster, file, path);
+	return err;
 }
 
 xfat_err_t xfile_close(xfile_t* file) {
